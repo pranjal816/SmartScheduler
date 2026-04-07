@@ -1,0 +1,387 @@
+import json
+import os
+import subprocess
+from json import JSONDecodeError
+
+from django.conf import settings
+from django.contrib import messages
+from django.db import models, transaction
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .forms import BatchForm, ClassroomForm, SubjectForm, TeacherForm, TimeSlotForm
+from .models import Batch, Classroom, Subject, Teacher, TimeSlot, Timetable
+
+
+def index(request):
+    context = {
+        "teacher_count": Teacher.objects.count(),
+        "classroom_count": Classroom.objects.count(),
+        "subject_count": Subject.objects.count(),
+        "timeslot_count": TimeSlot.objects.count(),
+        "batch_count": Batch.objects.count(),
+    }
+    return render(request, "index.html", context)
+
+
+def add_teacher(request):
+    if request.method == "POST":
+        form = TeacherForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Teacher added successfully!")
+            return redirect("add_teacher")
+    else:
+        form = TeacherForm()
+    teachers = Teacher.objects.order_by("name")
+    return render(request, "teacher_form.html", {"form": form, "teachers": teachers})
+
+
+def add_classroom(request):
+    if request.method == "POST":
+        form = ClassroomForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Classroom added successfully!")
+            return redirect("add_classroom")
+    else:
+        form = ClassroomForm()
+    classrooms = Classroom.objects.order_by("name")
+    return render(request, "classroom_form.html", {"form": form, "classrooms": classrooms})
+
+
+def add_subject(request):
+    if request.method == "POST":
+        form = SubjectForm(request.POST)
+        if form.is_valid():
+            subject = form.save()
+            messages.success(request, f"Subject {subject.name} added successfully!")
+            return redirect("add_subject")
+    else:
+        form = SubjectForm()
+    subjects = Subject.objects.prefetch_related("teachers").order_by("name")
+    return render(request, "subject_form.html", {"form": form, "subjects": subjects})
+
+
+def add_timeslot(request):
+    if request.method == "POST":
+        form = TimeSlotForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Time slot added successfully!")
+            return redirect("add_timeslot")
+    else:
+        form = TimeSlotForm()
+    timeslots = TimeSlot.objects.all()
+    return render(request, "timeslot_form.html", {"form": form, "timeslots": timeslots})
+
+
+def add_batch(request):
+    if request.method == "POST":
+        form = BatchForm(request.POST)
+        if form.is_valid():
+            batch = form.save()
+            messages.success(request, "Batch added successfully!")
+            return redirect("add_batch")
+    else:
+        form = BatchForm()
+    batches = Batch.objects.prefetch_related("subjects").all()
+    return render(request, "batch_form.html", {"form": form, "batches": batches})
+
+
+def edit_batch(request, batch_id):
+    batch = get_object_or_404(Batch, id=batch_id)
+
+    if request.method == "POST":
+        form = BatchForm(request.POST, instance=batch)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Batch updated successfully!")
+            return redirect("add_batch")
+    else:
+        form = BatchForm(instance=batch)
+
+    batches = Batch.objects.prefetch_related("subjects").all()
+    return render(
+        request,
+        "batch_form.html",
+        {"form": form, "batches": batches, "editing_batch": batch},
+    )
+
+
+def _ordered_subjects():
+    return Subject.objects.prefetch_related("teachers").order_by("id")
+
+
+def _ordered_batches():
+    return Batch.objects.order_by("id")
+
+
+def _ordered_teachers():
+    return Teacher.objects.order_by("id")
+
+
+def _ordered_classrooms():
+    return Classroom.objects.order_by("id")
+
+
+def _ordered_timeslots():
+    return TimeSlot.objects.order_by("id")
+
+
+def generate_input_json():
+    subjects = []
+    subject_index_map = {}
+    teacher_index_map = {
+        teacher.id: index for index, teacher in enumerate(_ordered_teachers())
+    }
+    for subject in _ordered_subjects():
+        subject_index_map[subject.id] = len(subjects)
+        subjects.append(
+            {
+                "teachers": [
+                    teacher_index_map[teacher.id]
+                    for teacher in subject.teachers.order_by("id")
+                    if teacher.id in teacher_index_map
+                ],
+                "lectures": subject.lectures_per_week,
+                "is_lab": subject.is_lab,
+            }
+        )
+
+    batch_subjects = []
+    for batch in Batch.objects.prefetch_related("subjects").order_by("id"):
+        batch_subjects.append(
+            [subject_index_map[subject.id] for subject in batch.subjects.order_by("id") if subject.id in subject_index_map]
+        )
+
+    timeslots = list(_ordered_timeslots())
+    lunch_slots = [index for index, slot in enumerate(timeslots) if slot.is_lunch]
+
+    data = {
+        "subjects": subjects,
+        "rooms": Classroom.objects.count(),
+        "slots": len(timeslots),
+        "batches": Batch.objects.count(),
+        "batch_subjects": batch_subjects,
+        "teachers": Teacher.objects.count(),
+        "lunch_slots": lunch_slots,
+    }
+
+    os.makedirs(settings.DATA_DIR, exist_ok=True)
+    input_path = os.path.join(settings.DATA_DIR, "input.json")
+    with open(input_path, "w", encoding="utf-8") as file_handle:
+        json.dump(data, file_handle, indent=2)
+
+    return input_path
+
+
+def run_cpp_engine():
+    try:
+        result = subprocess.run(
+            [settings.CPP_ENGINE_PATH],
+            cwd=os.path.dirname(settings.CPP_ENGINE_PATH),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        return result.returncode == 0, result.stderr.strip() or result.stdout.strip()
+    except Exception as exc:
+        return False, str(exc)
+
+
+def load_output_json():
+    output_path = os.path.join(settings.DATA_DIR, "output.json")
+    if not os.path.exists(output_path):
+        return None
+    try:
+        with open(output_path, "r", encoding="utf-8") as file_handle:
+            return json.load(file_handle)
+    except JSONDecodeError:
+        return None
+
+
+@transaction.atomic
+def save_timetable_from_output(output_data):
+    Timetable.objects.all().delete()
+
+    batches = list(_ordered_batches())
+    subjects = list(_ordered_subjects())
+    teachers = list(_ordered_teachers())
+    classrooms = list(_ordered_classrooms())
+    timeslots = list(_ordered_timeslots())
+
+    for entry in output_data.get("timetable", []):
+        Timetable.objects.create(
+            batch=batches[entry["batch"]],
+            subject=subjects[entry["subject"]],
+            teacher=teachers[entry["teacher"]],
+            classroom=classrooms[entry["room"]],
+            timeslot=timeslots[entry["slot"]],
+        )
+
+
+def generate_timetable(request):
+    if request.method != "POST":
+        return redirect("index")
+
+    if Teacher.objects.count() == 0:
+        messages.error(request, "Add at least one teacher first.")
+    elif Classroom.objects.count() == 0:
+        messages.error(request, "Add at least one classroom first.")
+    elif Subject.objects.count() == 0:
+        messages.error(request, "Add at least one subject first.")
+    elif TimeSlot.objects.count() == 0:
+        messages.error(request, "Add at least one time slot first.")
+    elif Batch.objects.count() == 0:
+        messages.error(request, "Add at least one batch first.")
+    elif Batch.objects.filter(subjects__isnull=True).exists():
+        messages.error(request, "Assign at least one subject to every batch before generating the timetable.")
+    else:
+        generate_input_json()
+        engine_success, engine_message = run_cpp_engine()
+        if engine_success:
+            output = load_output_json()
+            if output and "timetable" in output and output["timetable"]:
+                save_timetable_from_output(output)
+                messages.success(request, "Timetable generated successfully!")
+            else:
+                messages.error(request, "Engine output is empty or no solution was found.")
+        else:
+            details = (
+                "Check your constraints and ensure the engine is compiled."
+                if not engine_message
+                else engine_message
+            )
+            messages.error(request, f"C++ scheduling engine failed: {details}")
+
+    return redirect("timetable_view")
+
+
+def timetable_view(request):
+    batches = Batch.objects.all()
+    selected_batch_id = request.GET.get("batch")
+    timetable_entries = Timetable.objects.none()
+    timeslots = TimeSlot.objects.all()
+
+    if selected_batch_id:
+        batch = get_object_or_404(Batch, id=selected_batch_id)
+        timetable_entries = Timetable.objects.filter(batch=batch).select_related(
+            "subject", "teacher", "classroom", "timeslot"
+        )
+
+    days = ["MON", "TUE", "WED", "THU", "FRI", "SAT"]
+    day_labels = {
+        "MON": "Monday",
+        "TUE": "Tuesday",
+        "WED": "Wednesday",
+        "THU": "Thursday",
+        "FRI": "Friday",
+        "SAT": "Saturday",
+    }
+    time_rows = []
+    seen_time_keys = set()
+    for timeslot in timeslots:
+        time_key = (
+            timeslot.start_time.strftime("%H:%M"),
+            timeslot.end_time.strftime("%H:%M"),
+        )
+        if time_key not in seen_time_keys:
+            seen_time_keys.add(time_key)
+            time_rows.append(
+                {
+                    "key": f"{time_key[0]}-{time_key[1]}",
+                    "start": time_key[0],
+                    "end": time_key[1],
+                }
+            )
+
+    grid = {row["key"]: {day: None for day in days} for row in time_rows}
+
+    for entry in timetable_entries:
+        row_key = (
+            f"{entry.timeslot.start_time.strftime('%H:%M')}-"
+            f"{entry.timeslot.end_time.strftime('%H:%M')}"
+        )
+        if row_key in grid and entry.timeslot.day in grid[row_key]:
+            grid[row_key][entry.timeslot.day] = entry
+
+    context = {
+        "batches": batches,
+        "selected_batch_id": int(selected_batch_id) if selected_batch_id else None,
+        "time_rows": time_rows,
+        "days": days,
+        "day_labels": day_labels,
+        "grid": grid,
+    }
+    return render(request, "timetable_view.html", context)
+
+
+def free_classroom_finder(request):
+    timeslots = TimeSlot.objects.all()
+    available_classrooms = []
+    selected_timeslot = None
+
+    if request.method == "POST":
+        timeslot_id = request.POST.get("timeslot")
+        if timeslot_id:
+            selected_timeslot = get_object_or_404(TimeSlot, id=timeslot_id)
+            busy_classrooms = Timetable.objects.filter(timeslot=selected_timeslot).values_list(
+                "classroom", flat=True
+            )
+            available_classrooms = Classroom.objects.exclude(id__in=busy_classrooms)
+
+    return render(
+        request,
+        "free_classroom.html",
+        {
+            "timeslots": timeslots,
+            "available_classrooms": available_classrooms,
+            "selected_timeslot": selected_timeslot,
+        },
+    )
+
+
+def edit_timetable_entry(request, entry_id):
+    entry = get_object_or_404(Timetable, id=entry_id)
+
+    if request.method == "POST":
+        new_timeslot_id = request.POST.get("timeslot")
+        new_classroom_id = request.POST.get("classroom")
+
+        if new_timeslot_id and new_classroom_id:
+            new_timeslot = get_object_or_404(TimeSlot, id=new_timeslot_id)
+            new_classroom = get_object_or_404(Classroom, id=new_classroom_id)
+
+            conflict = (
+                Timetable.objects.filter(timeslot=new_timeslot)
+                .filter(
+                    models.Q(batch=entry.batch)
+                    | models.Q(teacher=entry.teacher)
+                    | models.Q(classroom=new_classroom)
+                )
+                .exclude(id=entry.id)
+                .exists()
+            )
+
+            if not conflict:
+                entry.timeslot = new_timeslot
+                entry.classroom = new_classroom
+                entry.save()
+                messages.success(request, "Entry updated successfully.")
+            else:
+                messages.error(
+                    request,
+                    "Conflict detected: batch, teacher, or classroom is already occupied at that time.",
+                )
+
+        batch_id = request.GET.get("batch", entry.batch.id)
+        return redirect(f"/timetable/?batch={batch_id}")
+
+    timeslots = TimeSlot.objects.all()
+    classrooms = Classroom.objects.all()
+    return render(
+        request,
+        "edit_timetable.html",
+        {"entry": entry, "timeslots": timeslots, "classrooms": classrooms},
+    )

@@ -1,0 +1,81 @@
+{
+  "subjects": [
+    {
+      "teachers": [
+        0
+      ],
+      "lectures": 3,
+      "is_lab": false
+    },
+    {
+      "teachers": [
+        1
+      ],
+      "lectures": 3,
+      "is_lab": false
+    },
+    {
+      "teachers": [
+        2
+      ],
+      "lectures": 4,
+      "is_lab": false
+    },
+    {
+      "teachers": [
+        3
+      ],
+      "lectures": 3,
+      "is_lab": false
+    },
+    {
+      "teachers": [
+        4
+      ],
+      "lectures": 3,
+      "is_lab": false
+    },
+    {
+      "teachers": [
+        5
+      ],
+      "lectures": 2,
+      "is_lab": false
+    },
+    {
+      "teachers": [
+        6
+      ],
+      "lectures": 4,
+      "is_lab": false
+    },
+    {
+      "teachers": [
+        7
+      ],
+      "lectures": 3,
+      "is_lab": false
+    }
+  ],
+  "rooms": 4,
+  "slots": 54,
+  "batches": 2,
+  "batch_subjects": [
+    [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    [
+      2,
+      3,
+      6,
+      7
+    ]
+  ],
+  "teachers": 8,
+  "lunch_slots": []
+}

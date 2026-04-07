@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Free Classroom Finder</h2>
+<form method="post">
+    {% csrf_token %}
+    <div class="row g-3 align-items-end">
+        <div class="col-md-5">
+            <label class="form-label">Select Time Slot:</label>
+            <select name="timeslot" class="form-select" required>
+                <option value="">-- Choose --</option>
+                {% for ts in timeslots %}
+                    <option value="{{ ts.id }}" {% if selected_timeslot and selected_timeslot.id == ts.id %}selected{% endif %}>{{ ts }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary">Find Free Classrooms</button>
+        </div>
+    </div>
+</form>
+
+{% if selected_timeslot %}
+    <div class="mt-4">
+        <h4>Available Classrooms for {{ selected_timeslot }}</h4>
+        <ul class="list-group">
+            {% for cr in available_classrooms %}
+                <li class="list-group-item">{{ cr.name }} (Capacity: {{ cr.capacity }})</li>
+            {% empty %}
+                <li class="list-group-item text-danger">No free classrooms available.</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
+{% endblock %}

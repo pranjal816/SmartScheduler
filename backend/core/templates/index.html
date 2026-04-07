@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h2 class="mb-0">SmartScheduler Dashboard</h2>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="alert alert-info">
+                    <h5>System Status</h5>
+                    <p class="mb-0">
+                        Teachers: {{ teacher_count }}<br>
+                        Classrooms: {{ classroom_count }}<br>
+                        Subjects: {{ subject_count }}<br>
+                        Time Slots: {{ timeslot_count }}<br>
+                        Batches: {{ batch_count }}
+                    </p>
+                </div>
+                <form method="post" action="{% url 'generate_timetable' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-lg">Generate Timetable</button>
+                </form>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5>Quick Links</h5>
+                        <a href="{% url 'timetable_view' %}" class="btn btn-outline-primary m-1">View Timetable</a>
+                        <a href="{% url 'free_classroom' %}" class="btn btn-outline-secondary m-1">Free Classroom Finder</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

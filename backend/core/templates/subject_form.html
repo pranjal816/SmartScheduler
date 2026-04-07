@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row g-4">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">Add New Subject</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <button type="submit" class="btn btn-primary">Add Subject</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header">Existing Subjects</div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for subject in subjects %}
+                        <li class="list-group-item">
+                            <strong>{{ subject.name }}</strong>
+                            {% if subject.is_lab %}<span class="badge bg-danger ms-2">Lab</span>{% endif %}
+                            <div class="text-muted">Lectures per week: {{ subject.lectures_per_week }}</div>
+                            <div>Teachers:
+                                {% for teacher in subject.teachers.all %}
+                                    <span class="badge bg-secondary">{{ teacher.name }}</span>
+                                {% endfor %}
+                            </div>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item">No subjects added yet.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

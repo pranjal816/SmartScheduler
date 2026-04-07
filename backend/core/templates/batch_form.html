@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row g-4">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">
+                {% if editing_batch %}Edit Batch{% else %}Add New Batch{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <button type="submit" class="btn btn-primary">
+                        {% if editing_batch %}Save Batch{% else %}Add Batch{% endif %}
+                    </button>
+                    {% if editing_batch %}
+                        <a href="{% url 'add_batch' %}" class="btn btn-secondary">Cancel</a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header">Existing Batches</div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for batch in batches %}
+                        <li class="list-group-item">
+                            <strong>{{ batch.name }} (Year {{ batch.year }})</strong>
+                            <div class="mt-2">
+                                Subjects:
+                                {% for subject in batch.subjects.all %}
+                                    <span class="badge bg-secondary">{{ subject.name }}</span>
+                                {% empty %}
+                                    <span class="text-danger">No subjects assigned</span>
+                                {% endfor %}
+                            </div>
+                            <a href="{% url 'edit_batch' batch.id %}" class="btn btn-sm btn-warning mt-2">Edit</a>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item">No batches added yet.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

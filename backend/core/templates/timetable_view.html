@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+<section class="timetable-shell">
+    <div class="timetable-hero">
+        <h2 class="timetable-title">Batchwise SmartScheduler Timetable</h2>
+        <form method="get" class="timetable-toolbar">
+            <label class="visually-hidden" for="batch-select">Select Batch</label>
+            <select id="batch-select" name="batch" class="form-select timetable-select" onchange="this.form.submit()">
+                <option value="">Select Batch</option>
+                {% for batch in batches %}
+                    <option value="{{ batch.id }}" {% if selected_batch_id == batch.id %}selected{% endif %}>{{ batch.name }} | Year {{ batch.year }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    {% if selected_batch_id %}
+        <div class="timetable-board">
+            <div class="table-responsive">
+                <table class="table timetable-grid align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="time-col">Time</th>
+                            {% for day in days %}
+                                <th>{{ day_labels|get_item:day|upper }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in time_rows %}
+                            <tr>
+                                <th class="time-col">
+                                    <span>{{ row.start }}</span>
+                                    <span>{{ row.end }}</span>
+                                </th>
+                                {% for day in days %}
+                                    <td class="timetable-cell">
+                                        {% with entry=grid|get_item:row.key|get_item:day %}
+                                            {% if entry %}
+                                                <div class="tt-subject">{{ entry.subject.name }}</div>
+                                                <div class="tt-teacher">{{ entry.teacher.name }}</div>
+                                                <div class="tt-room">{{ entry.classroom.name }}</div>
+                                                <a href="{% url 'edit_entry' entry.id %}?batch={{ selected_batch_id }}" class="tt-edit">Edit</a>
+                                            {% else %}
+                                                <span class="tt-empty">.</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <div class="timetable-empty">
+            Please select a batch to view its timetable.
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

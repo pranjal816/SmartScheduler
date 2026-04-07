@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Edit Timetable Entry</h2>
+<div class="card">
+    <div class="card-body">
+        <p><strong>Batch:</strong> {{ entry.batch }}</p>
+        <p><strong>Subject:</strong> {{ entry.subject }}</p>
+        <p><strong>Teacher:</strong> {{ entry.teacher }}</p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">New Time Slot:</label>
+                <select name="timeslot" class="form-select" required>
+                    {% for ts in timeslots %}
+                        <option value="{{ ts.id }}" {% if entry.timeslot.id == ts.id %}selected{% endif %}>{{ ts }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">New Classroom:</label>
+                <select name="classroom" class="form-select" required>
+                    {% for cr in classrooms %}
+                        <option value="{{ cr.id }}" {% if entry.classroom.id == cr.id %}selected{% endif %}>{{ cr.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="{% url 'timetable_view' %}?batch={{ entry.batch.id }}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

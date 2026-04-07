@@ -1,0 +1,223 @@
+:root {
+    --sidebar-bg: #f4f6fb;
+    --sidebar-link: #1e3a5f;
+    --sidebar-link-hover: #0d6efd;
+    --tt-page: #2f4155;
+    --tt-panel: #32485f;
+    --tt-header: #2a8dbe;
+    --tt-cell: rgba(255, 255, 255, 0.06);
+    --tt-cell-alt: rgba(255, 255, 255, 0.03);
+    --tt-border: rgba(255, 255, 255, 0.08);
+    --tt-text: #eef5fb;
+    --tt-muted: #a9bfd2;
+    --tt-accent: #53b7f2;
+}
+
+body {
+    background: #eef2f7;
+}
+
+.sidebar {
+    background: linear-gradient(180deg, #ffffff 0%, var(--sidebar-bg) 100%);
+    border-right: 1px solid #d7deea;
+}
+
+.sidebar .nav-link {
+    color: var(--sidebar-link);
+    border-radius: 0.5rem;
+    padding: 0.65rem 0.8rem;
+}
+
+.sidebar .nav-link:hover {
+    background: rgba(13, 110, 253, 0.08);
+    color: var(--sidebar-link-hover);
+}
+
+.main-content {
+    padding-inline: 2rem;
+}
+
+.timetable-cell {
+    min-width: 180px;
+    min-height: 120px;
+    background: #fff;
+}
+
+.timetable-shell {
+    background: linear-gradient(180deg, #354a60 0%, var(--tt-page) 100%);
+    color: var(--tt-text);
+    border-radius: 1rem;
+    padding: 2rem 1.25rem;
+    box-shadow: 0 18px 50px rgba(14, 25, 39, 0.22);
+}
+
+.timetable-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.timetable-title {
+    margin: 0;
+    font-size: clamp(1.6rem, 2vw, 2.2rem);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-align: center;
+}
+
+.timetable-toolbar {
+    width: min(100%, 260px);
+}
+
+.timetable-select {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--tt-text);
+    text-align: center;
+    font-weight: 600;
+}
+
+.timetable-select:focus {
+    border-color: var(--tt-accent);
+    box-shadow: 0 0 0 0.2rem rgba(83, 183, 242, 0.15);
+}
+
+.timetable-select option {
+    color: #102131;
+}
+
+.timetable-board {
+    background: var(--tt-panel);
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1px solid var(--tt-border);
+}
+
+.timetable-grid {
+    color: var(--tt-text);
+    margin: 0;
+}
+
+.timetable-grid thead th {
+    background: var(--tt-header);
+    color: #f8fcff;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: center;
+    border: 0;
+    padding: 0.95rem 0.65rem;
+}
+
+.timetable-grid tbody tr:nth-child(odd) td,
+.timetable-grid tbody tr:nth-child(odd) .time-col {
+    background: var(--tt-cell);
+}
+
+.timetable-grid tbody tr:nth-child(even) td,
+.timetable-grid tbody tr:nth-child(even) .time-col {
+    background: var(--tt-cell-alt);
+}
+
+.timetable-grid td,
+.timetable-grid th {
+    border-color: var(--tt-border);
+}
+
+.timetable-grid .time-col {
+    min-width: 92px;
+    width: 92px;
+    color: #ffffff;
+    font-size: 0.76rem;
+    font-weight: 700;
+    vertical-align: middle;
+    text-align: left;
+    padding: 1rem 0.85rem;
+}
+
+.timetable-grid .time-col span {
+    display: block;
+    line-height: 1.25;
+}
+
+.timetable-grid td.timetable-cell {
+    min-width: 130px;
+    min-height: 108px;
+    height: 108px;
+    background: transparent;
+    padding: 0.9rem 0.75rem;
+    vertical-align: top;
+}
+
+.tt-subject {
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    margin-bottom: 0.2rem;
+}
+
+.tt-teacher {
+    color: var(--tt-text);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.tt-room {
+    color: var(--tt-accent);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 0.2rem;
+}
+
+.tt-edit {
+    display: inline-block;
+    margin-top: 0.55rem;
+    color: #ffd166;
+    font-size: 0.74rem;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.tt-edit:hover {
+    color: #ffe49c;
+}
+
+.tt-empty {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.timetable-empty {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--tt-border);
+    border-radius: 0.9rem;
+    padding: 1rem 1.2rem;
+    text-align: center;
+    color: var(--tt-text);
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        padding-inline: 1rem;
+    }
+
+    .timetable-shell {
+        padding: 1.25rem 0.75rem;
+    }
+
+    .timetable-grid td.timetable-cell {
+        min-width: 118px;
+        height: 96px;
+        padding: 0.7rem 0.55rem;
+    }
+
+    .tt-subject {
+        font-size: 0.82rem;
+    }
+}
