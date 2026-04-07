@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.db import models, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
+from .scheduler import generate_timetable_entries
 from .forms import BatchForm, ClassroomForm, SubjectForm, TeacherForm, TimeSlotForm
 from .models import Batch, Classroom, Subject, Teacher, TimeSlot, Timetable
 
@@ -128,6 +129,14 @@ def _ordered_timeslots():
     return TimeSlot.objects.order_by("id")
 
 
+def _scheduler_input():
+    return {
+        "batches": list(Batch.objects.prefetch_related("subjects__teachers").order_by("id")),
+        "classrooms": list(Classroom.objects.order_by("id")),
+        "timeslots": list(TimeSlot.objects.order_by("start_time", "day")),
+    }
+
+
 def generate_input_json():
     subjects = []
     subject_index_map = {}
@@ -221,6 +230,13 @@ def save_timetable_from_output(output_data):
         )
 
 
+@transaction.atomic
+def save_timetable_entries(entries):
+    Timetable.objects.all().delete()
+    for entry in entries:
+        Timetable.objects.create(**entry)
+
+
 def generate_timetable(request):
     if request.method != "POST":
         return redirect("index")
@@ -238,22 +254,20 @@ def generate_timetable(request):
     elif Batch.objects.filter(subjects__isnull=True).exists():
         messages.error(request, "Assign at least one subject to every batch before generating the timetable.")
     else:
-        generate_input_json()
-        engine_success, engine_message = run_cpp_engine()
-        if engine_success:
-            output = load_output_json()
-            if output and "timetable" in output and output["timetable"]:
-                save_timetable_from_output(output)
-                messages.success(request, "Timetable generated successfully!")
-            else:
-                messages.error(request, "Engine output is empty or no solution was found.")
+        scheduler_input = _scheduler_input()
+        generated_entries = generate_timetable_entries(
+            scheduler_input["batches"],
+            scheduler_input["classrooms"],
+            scheduler_input["timeslots"],
+        )
+        if generated_entries:
+            save_timetable_entries(generated_entries)
+            messages.success(request, "Timetable generated successfully!")
         else:
-            details = (
-                "Check your constraints and ensure the engine is compiled."
-                if not engine_message
-                else engine_message
+            messages.error(
+                request,
+                "Unable to generate a timetable with the current teachers, subjects, classrooms, and time slots.",
             )
-            messages.error(request, f"C++ scheduling engine failed: {details}")
 
     return redirect("timetable_view")
 

@@ -38,6 +38,26 @@ cd ../backend
 python manage.py runserver
 ```
 
+## Deploy To Vercel
+
+This project includes:
+
+- `api/index.py` as the Vercel Python entrypoint
+- `vercel.json` for routing and static collection
+- `requirements.txt` for installable Python dependencies
+
+Recommended environment variables on Vercel:
+
+- `SECRET_KEY`: a secure Django secret
+- `DEBUG`: `False`
+- `ALLOWED_HOSTS`: your Vercel domain, or `*` for simple testing
+- `DATABASE_URL`: a hosted PostgreSQL connection string
+
+Important:
+
+- Vercel should use a hosted database in production. Do not rely on SQLite for deployed data persistence.
+- The timetable generator now runs in Python, so the web app no longer depends on the local C++ executable during requests.
+
 ## Notes
 
 - `json.hpp` should be placed in `cpp_engine/` before compiling.
