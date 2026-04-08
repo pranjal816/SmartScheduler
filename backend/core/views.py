@@ -5,7 +5,9 @@ from json import JSONDecodeError
 
 from django.conf import settings
 from django.contrib import messages
+from django.core.management import call_command
 from django.db import models, transaction
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .scheduler import generate_timetable_entries
@@ -22,6 +24,25 @@ def index(request):
         "batch_count": Batch.objects.count(),
     }
     return render(request, "index.html", context)
+
+
+def init_db(request):
+    expected_token = os.environ.get("INIT_DB_TOKEN")
+    supplied_token = request.GET.get("token")
+
+    if not expected_token:
+        return JsonResponse({"error": "INIT_DB_TOKEN is not configured."}, status=500)
+
+    if supplied_token != expected_token:
+        return JsonResponse({"error": "Unauthorized."}, status=401)
+
+    try:
+        call_command("migrate", interactive=False, verbosity=1)
+        if request.GET.get("seed") == "1":
+            call_command("seed_demo_data", verbosity=1)
+        return HttpResponse("Database initialization completed successfully.")
+    except Exception as exc:
+        return JsonResponse({"error": str(exc)}, status=500)
 
 
 def add_teacher(request):
