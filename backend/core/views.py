@@ -27,6 +27,9 @@ def index(request):
 
 
 def init_db(request):
+    if os.environ.get("ENABLE_DB_INIT_ROUTE", "False").lower() != "true":
+        return JsonResponse({"error": "Not found."}, status=404)
+
     expected_token = os.environ.get("INIT_DB_TOKEN")
     supplied_token = request.GET.get("token")
 
