@@ -1,7 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd backend && python manage.py migrate --noinput",
   "rewrites": [
+    {
+      "source": "/api/init-db",
+      "destination": "/api/init_db.py"
+    },
     {
       "source": "/(.*)",
       "destination": "/api/index.py"
