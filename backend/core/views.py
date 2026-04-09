@@ -1,27 +1,96 @@
 import json
 import os
 import subprocess
+from functools import wraps
 from json import JSONDecodeError
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView
 from django.core.management import call_command
 from django.db import models, transaction
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .scheduler import generate_timetable_entries
-from .forms import BatchForm, ClassroomForm, SubjectForm, TeacherForm, TimeSlotForm
-from .models import Batch, Classroom, Subject, Teacher, TimeSlot, Timetable
+from .forms import BatchForm, ClassroomForm, LoginForm, SubjectForm, TeacherForm, TimeSlotForm
+from .models import Batch, Classroom, Profile, Subject, Teacher, TimeSlot, Timetable
 
 
+def _user_role(user):
+    if not user.is_authenticated:
+        return None
+    if user.is_superuser or user.is_staff:
+        return Profile.ROLE_ADMIN
+    profile = getattr(user, "profile", None)
+    return profile.role if profile else Profile.ROLE_STUDENT
+
+
+def _is_admin(user):
+    return _user_role(user) == Profile.ROLE_ADMIN
+
+
+def _is_teacher(user):
+    return _user_role(user) == Profile.ROLE_TEACHER
+
+
+def _is_student(user):
+    return _user_role(user) == Profile.ROLE_STUDENT
+
+
+def _teacher_for_user(user):
+    return getattr(getattr(user, "profile", None), "teacher", None)
+
+
+def role_required(*allowed_roles):
+    def decorator(view_func):
+        @login_required
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            role = _user_role(request.user)
+            if role not in allowed_roles:
+                messages.error(request, "You do not have permission to access that page.")
+                return redirect("index")
+            return view_func(request, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
+class UserLoginView(LoginView):
+    template_name = "login.html"
+    authentication_form = LoginForm
+    redirect_authenticated_user = True
+
+    def get_success_url(self):
+        role = _user_role(self.request.user)
+        if role in {Profile.ROLE_TEACHER, Profile.ROLE_STUDENT}:
+            return "/timetable/"
+        return "/"
+
+
+def logout_view(request):
+    logout(request)
+    messages.success(request, "You have been logged out.")
+    return redirect("login")
+
+
+@login_required
 def index(request):
+    role = _user_role(request.user)
+    if role in {Profile.ROLE_TEACHER, Profile.ROLE_STUDENT}:
+        return redirect("timetable_view")
+
     context = {
         "teacher_count": Teacher.objects.count(),
         "classroom_count": Classroom.objects.count(),
         "subject_count": Subject.objects.count(),
         "timeslot_count": TimeSlot.objects.count(),
         "batch_count": Batch.objects.count(),
+        "user_role": role,
     }
     return render(request, "index.html", context)
 
@@ -48,6 +117,7 @@ def init_db(request):
         return JsonResponse({"error": str(exc)}, status=500)
 
 
+@role_required(Profile.ROLE_ADMIN)
 def add_teacher(request):
     if request.method == "POST":
         form = TeacherForm(request.POST)
@@ -61,6 +131,7 @@ def add_teacher(request):
     return render(request, "teacher_form.html", {"form": form, "teachers": teachers})
 
 
+@role_required(Profile.ROLE_ADMIN)
 def add_classroom(request):
     if request.method == "POST":
         form = ClassroomForm(request.POST)
@@ -74,6 +145,7 @@ def add_classroom(request):
     return render(request, "classroom_form.html", {"form": form, "classrooms": classrooms})
 
 
+@role_required(Profile.ROLE_ADMIN)
 def add_subject(request):
     if request.method == "POST":
         form = SubjectForm(request.POST)
@@ -87,6 +159,7 @@ def add_subject(request):
     return render(request, "subject_form.html", {"form": form, "subjects": subjects})
 
 
+@role_required(Profile.ROLE_ADMIN)
 def add_timeslot(request):
     if request.method == "POST":
         form = TimeSlotForm(request.POST)
@@ -100,6 +173,7 @@ def add_timeslot(request):
     return render(request, "timeslot_form.html", {"form": form, "timeslots": timeslots})
 
 
+@role_required(Profile.ROLE_ADMIN)
 def add_batch(request):
     if request.method == "POST":
         form = BatchForm(request.POST)
@@ -113,6 +187,7 @@ def add_batch(request):
     return render(request, "batch_form.html", {"form": form, "batches": batches})
 
 
+@role_required(Profile.ROLE_ADMIN)
 def edit_batch(request, batch_id):
     batch = get_object_or_404(Batch, id=batch_id)
 
@@ -261,6 +336,7 @@ def save_timetable_entries(entries):
         Timetable.objects.create(**entry)
 
 
+@role_required(Profile.ROLE_ADMIN)
 def generate_timetable(request):
     if request.method != "POST":
         return redirect("index")
@@ -296,11 +372,28 @@ def generate_timetable(request):
     return redirect("timetable_view")
 
 
+@role_required(Profile.ROLE_ADMIN, Profile.ROLE_TEACHER, Profile.ROLE_STUDENT)
 def timetable_view(request):
     batches = Batch.objects.all()
     selected_batch_id = request.GET.get("batch")
     timetable_entries = Timetable.objects.none()
     timeslots = TimeSlot.objects.all()
+
+    if not selected_batch_id and (_is_teacher(request.user) or _is_student(request.user)):
+        first_batch = None
+        if _is_teacher(request.user):
+            teacher = _teacher_for_user(request.user)
+            if teacher is not None:
+                first_batch = (
+                    Batch.objects.filter(timetable__teacher=teacher)
+                    .distinct()
+                    .order_by("year", "name")
+                    .first()
+                )
+        if first_batch is None:
+            first_batch = batches.first()
+        if first_batch:
+            return redirect(f"/timetable/?batch={first_batch.id}")
 
     if selected_batch_id:
         batch = get_object_or_404(Batch, id=selected_batch_id)
@@ -351,10 +444,14 @@ def timetable_view(request):
         "days": days,
         "day_labels": day_labels,
         "grid": grid,
+        "can_edit_entries": _is_admin(request.user) or _is_teacher(request.user),
+        "is_admin_user": _is_admin(request.user),
+        "teacher_id": _teacher_for_user(request.user).id if _teacher_for_user(request.user) else None,
     }
     return render(request, "timetable_view.html", context)
 
 
+@role_required(Profile.ROLE_ADMIN, Profile.ROLE_TEACHER)
 def free_classroom_finder(request):
     timeslots = TimeSlot.objects.all()
     available_classrooms = []
@@ -380,8 +477,15 @@ def free_classroom_finder(request):
     )
 
 
+@role_required(Profile.ROLE_ADMIN, Profile.ROLE_TEACHER)
 def edit_timetable_entry(request, entry_id):
     entry = get_object_or_404(Timetable, id=entry_id)
+
+    if _is_teacher(request.user):
+        teacher = _teacher_for_user(request.user)
+        if teacher is None or entry.teacher_id != teacher.id:
+            messages.error(request, "You can only reschedule your own classes.")
+            return redirect(f"/timetable/?batch={entry.batch.id}")
 
     if request.method == "POST":
         new_timeslot_id = request.POST.get("timeslot")

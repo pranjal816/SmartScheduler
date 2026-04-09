@@ -41,7 +41,11 @@
                                                 <div class="tt-subject">{{ entry.subject.name }}</div>
                                                 <div class="tt-teacher">{{ entry.teacher.name }}</div>
                                                 <div class="tt-room">{{ entry.classroom.name }}</div>
-                                                <a href="{% url 'edit_entry' entry.id %}?batch={{ selected_batch_id }}" class="tt-edit">Edit</a>
+                                                {% if can_edit_entries %}
+                                                    {% if is_admin_user or teacher_id == entry.teacher.id %}
+                                                        <a href="{% url 'edit_entry' entry.id %}?batch={{ selected_batch_id }}" class="tt-edit">Edit</a>
+                                                    {% endif %}
+                                                {% endif %}
                                             {% else %}
                                                 <span class="tt-empty">.</span>
                                             {% endif %}

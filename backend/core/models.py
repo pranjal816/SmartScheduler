@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
 class Teacher(models.Model):
@@ -80,3 +81,22 @@ class Timetable(models.Model):
 
     def __str__(self):
         return f"{self.batch} - {self.subject} @ {self.timeslot}"
+
+
+class Profile(models.Model):
+    ROLE_ADMIN = "admin"
+    ROLE_TEACHER = "teacher"
+    ROLE_STUDENT = "student"
+
+    ROLE_CHOICES = [
+        (ROLE_ADMIN, "Admin"),
+        (ROLE_TEACHER, "Teacher"),
+        (ROLE_STUDENT, "Student"),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_STUDENT)
+    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username} ({self.role})"

@@ -80,6 +80,9 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR.parent / "public" / "static"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "index"
+LOGOUT_REDIRECT_URL = "login"
 
 CPP_ENGINE_PATH = os.path.join(BASE_DIR, "..", "cpp_engine", "scheduler.exe")
 DATA_DIR = os.path.join(BASE_DIR, "..", "data")

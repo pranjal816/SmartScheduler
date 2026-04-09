@@ -1,7 +1,10 @@
 from django.core.management.base import BaseCommand
+from django.contrib.auth.models import User
 from django.db import transaction
 
-from core.models import Batch, Classroom, Subject, Teacher, Timetable
+from core.scheduler import generate_timetable_entries
+from core.models import Batch, Classroom, Profile, Subject, Teacher, Timetable
+from core.models import TimeSlot
 
 
 class Command(BaseCommand):
@@ -76,10 +79,43 @@ class Command(BaseCommand):
             ]
         )
 
+        admin_user, _ = User.objects.get_or_create(username="admin")
+        admin_user.is_staff = True
+        admin_user.is_superuser = True
+        admin_user.set_password("admin123")
+        admin_user.save()
+        admin_user.profile.role = Profile.ROLE_ADMIN
+        admin_user.profile.teacher = None
+        admin_user.profile.save()
+
+        teacher_user, _ = User.objects.get_or_create(username="aks_teacher")
+        teacher_user.set_password("teacher123")
+        teacher_user.save()
+        teacher_user.profile.role = Profile.ROLE_TEACHER
+        teacher_user.profile.teacher = teachers["AKS"]
+        teacher_user.profile.save()
+
+        student_user, _ = User.objects.get_or_create(username="student_demo")
+        student_user.set_password("student123")
+        student_user.save()
+        student_user.profile.role = Profile.ROLE_STUDENT
+        student_user.profile.teacher = None
+        student_user.profile.save()
+
+        generated_entries = generate_timetable_entries(
+            list(Batch.objects.prefetch_related("subjects__teachers").order_by("id")),
+            list(Classroom.objects.order_by("id")),
+            list(TimeSlot.objects.order_by("start_time", "day")),
+        )
+
+        for entry in generated_entries:
+            Timetable.objects.create(**entry)
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"Seeded demo data: {Teacher.objects.count()} teachers, "
                 f"{len(classrooms)} classrooms, {Subject.objects.count()} subjects, "
-                f"{Batch.objects.count()} batches."
+                f"{Batch.objects.count()} batches, demo login users, and "
+                f"{Timetable.objects.count()} timetable entries."
             )
         )

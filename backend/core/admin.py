@@ -1,6 +1,18 @@
 from django.contrib import admin
+from django.contrib.auth.models import User
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import Batch, Classroom, Subject, Teacher, TimeSlot, Timetable
+from .models import Batch, Classroom, Profile, Subject, Teacher, TimeSlot, Timetable
+
+
+class ProfileInline(admin.StackedInline):
+    model = Profile
+    can_delete = False
+    extra = 0
+
+
+class UserAdmin(BaseUserAdmin):
+    inlines = (ProfileInline,)
 
 
 @admin.register(Teacher)
@@ -41,3 +53,14 @@ class TimeSlotAdmin(admin.ModelAdmin):
 class TimetableAdmin(admin.ModelAdmin):
     list_display = ("id", "batch", "subject", "teacher", "classroom", "timeslot")
     list_filter = ("batch", "timeslot__day")
+
+
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "role", "teacher")
+    list_filter = ("role",)
+    search_fields = ("user__username", "teacher__name")
+
+
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)

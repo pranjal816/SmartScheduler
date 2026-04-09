@@ -11,20 +11,37 @@
 <body>
     <div class="container-fluid">
         <div class="row min-vh-100">
-            <aside class="col-md-3 col-lg-2 sidebar py-4">
-                <h4 class="mb-4">SmartScheduler</h4>
-                <ul class="nav flex-column gap-2">
-                    <li class="nav-item"><a class="nav-link" href="{% url 'index' %}">Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'add_teacher' %}">Add Teacher</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'add_classroom' %}">Add Classroom</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'add_subject' %}">Add Subject</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'add_timeslot' %}">Add Time Slot</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'add_batch' %}">Add Batch</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'timetable_view' %}">View Timetable</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'free_classroom' %}">Free Classroom Finder</a></li>
-                </ul>
-            </aside>
-            <main class="col-md-9 col-lg-10 main-content py-4">
+            {% if request.user.is_authenticated %}
+                <aside class="col-md-3 col-lg-2 sidebar py-4">
+                    <h4 class="mb-1">SmartScheduler</h4>
+                    <div class="small text-muted mb-4">
+                        Signed in as {{ request.user.username }}
+                        {% if request.user.is_superuser or request.user.is_staff %}
+                            (Admin)
+                        {% elif request.user.profile.role == 'teacher' %}
+                            (Teacher)
+                        {% else %}
+                            (Student)
+                        {% endif %}
+                    </div>
+                    <ul class="nav flex-column gap-2">
+                        <li class="nav-item"><a class="nav-link" href="{% url 'index' %}">Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'timetable_view' %}">View Timetable</a></li>
+                        {% if request.user.is_superuser or request.user.is_staff or request.user.profile.role == 'teacher' %}
+                            <li class="nav-item"><a class="nav-link" href="{% url 'free_classroom' %}">Free Classroom Finder</a></li>
+                        {% endif %}
+                        {% if request.user.is_superuser or request.user.is_staff %}
+                            <li class="nav-item"><a class="nav-link" href="{% url 'add_teacher' %}">Add Teacher</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'add_classroom' %}">Add Classroom</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'add_subject' %}">Add Subject</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'add_timeslot' %}">Add Time Slot</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'add_batch' %}">Add Batch</a></li>
+                        {% endif %}
+                        <li class="nav-item mt-3"><a class="nav-link" href="{% url 'logout' %}">Logout</a></li>
+                    </ul>
+                </aside>
+            {% endif %}
+            <main class="{% if request.user.is_authenticated %}col-md-9 col-lg-10{% else %}col-12{% endif %} main-content py-4">
                 {% if messages %}
                     {% for message in messages %}
                         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
